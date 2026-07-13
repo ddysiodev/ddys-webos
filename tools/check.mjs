@@ -116,7 +116,7 @@ async function main() {
   }
 
   const app = await read('src/app.js');
-  for (const fragment of ['renderHome', 'renderSearch', 'renderDetail', 'renderFavorites', 'renderHistory', 'renderSettings', 'renderCheck', 'KEY_CODES', 'back: 461', "activeView = 'category'", "activeView = 'detail'", 'continueHtml', 'recordProgress', 'closest(', 'readNumber']) {
+  for (const fragment of ['renderHome', 'renderSearch', 'renderDetail', 'renderFavorites', 'renderHistory', 'renderSettings', 'renderCheck', 'KEY_CODES', 'back: 461', "activeView = 'category'", "activeView = 'detail'", 'continueHtml', 'recordProgress', 'shouldClearProgress', 'firstPlayableIndex', 'closest(', 'readNumber']) {
     assert(app.includes(fragment), `app missing ${fragment}.`);
   }
 
@@ -141,6 +141,7 @@ async function main() {
   const script = await read('tools/build-package.ps1');
   assert(script.includes('ddys-webos-v{0}.ipk'), 'build script must produce ipk.');
   assert(script.includes('debian-binary'), 'build script must build ipk ar entries.');
+  assert(script.includes('New-TarGzFromDirectory'), 'build script must create deterministic tar.gz entries.');
   assert(script.includes('usr\\palm\\applications\\{0}') && script.includes('$AppId'), 'build script must place app under webOS application path.');
   assert(script.includes('Assert-InRoot'), 'build script must guard recursive paths.');
   assert(script.includes('ZipFileExtensions'), 'build script must use ZipArchive API.');

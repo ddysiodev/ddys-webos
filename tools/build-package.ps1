@@ -78,7 +78,94 @@ function New-ZipFromDirectory {
     }
 }
 
-function Invoke-TarGz {
+function Write-TarString {
+    param(
+        [Parameter(Mandatory = $true)][byte[]]$Buffer,
+        [Parameter(Mandatory = $true)][int]$Offset,
+        [Parameter(Mandatory = $true)][int]$Length,
+        [string]$Value = ""
+    )
+
+    $bytes = [System.Text.Encoding]::ASCII.GetBytes($Value)
+    $count = [Math]::Min($bytes.Length, $Length)
+    [Array]::Copy($bytes, 0, $Buffer, $Offset, $count)
+}
+
+function Write-TarOctal {
+    param(
+        [Parameter(Mandatory = $true)][byte[]]$Buffer,
+        [Parameter(Mandatory = $true)][int]$Offset,
+        [Parameter(Mandatory = $true)][int]$Length,
+        [long]$Value = 0
+    )
+
+    $text = [Convert]::ToString($Value, 8).PadLeft($Length - 1, "0") + "`0"
+    Write-TarString -Buffer $Buffer -Offset $Offset -Length $Length -Value $text
+}
+
+function New-TarHeader {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][long]$Size,
+        [Parameter(Mandatory = $true)][string]$TypeFlag,
+        [int]$Mode = 420
+    )
+
+    $normalized = $Name.Replace("\", "/").TrimStart("/")
+    if ($normalized.Length -gt 100) {
+        throw "tar path is too long for ustar header: $normalized"
+    }
+
+    $buffer = New-Object byte[] 512
+    Write-TarString -Buffer $buffer -Offset 0 -Length 100 -Value $normalized
+    Write-TarOctal -Buffer $buffer -Offset 100 -Length 8 -Value $Mode
+    Write-TarOctal -Buffer $buffer -Offset 108 -Length 8 -Value 0
+    Write-TarOctal -Buffer $buffer -Offset 116 -Length 8 -Value 0
+    Write-TarOctal -Buffer $buffer -Offset 124 -Length 12 -Value $Size
+    Write-TarOctal -Buffer $buffer -Offset 136 -Length 12 -Value 0
+    for ($i = 148; $i -lt 156; $i++) {
+        $buffer[$i] = 32
+    }
+    Write-TarString -Buffer $buffer -Offset 156 -Length 1 -Value $TypeFlag
+    Write-TarString -Buffer $buffer -Offset 257 -Length 6 -Value "ustar"
+    Write-TarString -Buffer $buffer -Offset 263 -Length 2 -Value "00"
+    Write-TarString -Buffer $buffer -Offset 265 -Length 32 -Value "root"
+    Write-TarString -Buffer $buffer -Offset 297 -Length 32 -Value "root"
+
+    $checksum = 0
+    foreach ($byte in $buffer) {
+        $checksum += $byte
+    }
+    $checksumText = [Convert]::ToString($checksum, 8).PadLeft(6, "0") + "`0 "
+    Write-TarString -Buffer $buffer -Offset 148 -Length 8 -Value $checksumText
+    return $buffer
+}
+
+function Add-TarEntry {
+    param(
+        [Parameter(Mandatory = $true)][System.IO.Stream]$Stream,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [byte[]]$Content = $null,
+        [switch]$Directory
+    )
+
+    $bytes = if ($null -eq $Content) { New-Object byte[] 0 } else { $Content }
+    $type = if ($Directory) { "5" } else { "0" }
+    $mode = if ($Directory) { 493 } else { 420 }
+    $entryName = if ($Directory -and -not $Name.EndsWith("/")) { "$Name/" } else { $Name }
+    $header = New-TarHeader -Name $entryName -Size $bytes.Length -TypeFlag $type -Mode $mode
+    $Stream.Write($header, 0, $header.Length)
+    if ($bytes.Length -gt 0) {
+        $Stream.Write($bytes, 0, $bytes.Length)
+        $remainder = $bytes.Length % 512
+        if ($remainder -ne 0) {
+            $padding = New-Object byte[] (512 - $remainder)
+            $Stream.Write($padding, 0, $padding.Length)
+        }
+    }
+}
+
+function New-TarGzFromDirectory {
     param(
         [Parameter(Mandatory = $true)][string]$Source,
         [Parameter(Mandatory = $true)][string]$Output
@@ -87,13 +174,37 @@ function Invoke-TarGz {
     if (Test-Path -LiteralPath $Output) {
         Remove-Item -LiteralPath $Output -Force
     }
-    $tar = Get-Command tar -ErrorAction SilentlyContinue
-    if ($null -eq $tar) {
-        throw "tar command is required to build a webOS ipk."
+
+    $tarStream = New-Object System.IO.MemoryStream
+    try {
+        Add-TarEntry -Stream $tarStream -Name "." -Directory
+        $entries = Get-ChildItem -LiteralPath $Source -Recurse -Force | Sort-Object FullName
+        foreach ($entry in $entries) {
+            $relative = (Get-RelativePathCompat -Base $Source -Path $entry.FullName).Replace("\", "/")
+            if ($entry.PSIsContainer) {
+                Add-TarEntry -Stream $tarStream -Name "./$relative" -Directory
+            } else {
+                $content = [System.IO.File]::ReadAllBytes($entry.FullName)
+                Add-TarEntry -Stream $tarStream -Name "./$relative" -Content $content
+            }
+        }
+        $end = New-Object byte[] 1024
+        $tarStream.Write($end, 0, $end.Length)
+        $tarBytes = $tarStream.ToArray()
+    } finally {
+        $tarStream.Dispose()
     }
-    & $tar.Source -czf $Output -C $Source .
-    if ($LASTEXITCODE -ne 0) {
-        throw "tar failed while creating $Output"
+
+    $outputStream = [System.IO.File]::Open($Output, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write)
+    try {
+        $gzip = New-Object System.IO.Compression.GZipStream($outputStream, [System.IO.Compression.CompressionLevel]::Optimal)
+        try {
+            $gzip.Write($tarBytes, 0, $tarBytes.Length)
+        } finally {
+            $gzip.Dispose()
+        }
+    } finally {
+        $outputStream.Dispose()
     }
 }
 
@@ -211,8 +322,8 @@ $DebianBinary = Join-Path $IpkWork "debian-binary"
 $ControlTar = Join-Path $IpkWork "control.tar.gz"
 $DataTar = Join-Path $IpkWork "data.tar.gz"
 [System.IO.File]::WriteAllBytes($DebianBinary, [System.Text.Encoding]::ASCII.GetBytes("2.0`n"))
-Invoke-TarGz -Source $ControlDir -Output $ControlTar
-Invoke-TarGz -Source $DataRoot -Output $DataTar
+New-TarGzFromDirectory -Source $ControlDir -Output $ControlTar
+New-TarGzFromDirectory -Source $DataRoot -Output $DataTar
 New-ArArchive -Output $Ipk -Entries @(
     @{ Name = "debian-binary"; Path = $DebianBinary },
     @{ Name = "control.tar.gz"; Path = $ControlTar },

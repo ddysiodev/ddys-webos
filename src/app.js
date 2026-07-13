@@ -285,10 +285,15 @@
   function resumeMovie(slug) {
     var detail = global.__ddysCurrentDetail;
     var saved = progress[slug];
-    var index = 0;
+    var index = -1;
     if (!detail || !saved) return;
     for (var i = 0; i < detail.resources.length; i += 1) {
-      if (detail.resources[i].url === saved.resourceUrl) index = i;
+      if (detail.resources[i].url === saved.resourceUrl && detail.resources[i].playable) index = i;
+    }
+    if (index < 0) index = firstPlayableIndex(detail.resources);
+    if (index < 0) {
+      toastText('没有可继续播放的资源');
+      return;
     }
     playResource(index, saved.position || 0);
   }
@@ -437,6 +442,11 @@
     var resource = current.resource || {};
     var slug = movie.slug || movie.id;
     if (!slug || !resource.url) return;
+    if (shouldClearProgress(current)) {
+      delete progress[slug];
+      store.write('progress', progress);
+      return;
+    }
     progress[slug] = {
       slug: slug,
       title: movie.title,
@@ -448,6 +458,13 @@
       updatedAt: new Date().toISOString()
     };
     store.write('progress', progress);
+  }
+
+  function shouldClearProgress(current) {
+    var position = Number(current.position) || 0;
+    var duration = Number(current.duration) || 0;
+    if (duration <= 0 || position <= 0) return false;
+    return duration - position <= 60 || position / duration >= 0.92;
   }
 
   function heroHtml() {
@@ -579,6 +596,13 @@
       seen[key] = true;
       return true;
     });
+  }
+
+  function firstPlayableIndex(resources) {
+    for (var i = 0; i < resources.length; i += 1) {
+      if (resources[i] && resources[i].playable) return i;
+    }
+    return -1;
   }
 
   function valueOf(id) {
