@@ -1,0 +1,10 @@
+{
+  "apiBase": "https://ddys.io/api/v1",
+  "apiKey": "",
+  "apiKeyMode": "query",
+  "apiKeyQuery": "api_key",
+  "pageSize": 24,
+  "cacheTtlSeconds": 600,
+  "directOnly": false,
+  "includeExternal": true
+}

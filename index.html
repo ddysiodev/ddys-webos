@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#071315">
+    <title>DDYS webOS</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="assets/icon.png" alt="" class="brand-icon">
+          <div>
+            <h1>DDYS</h1>
+            <p id="statusLine">正在启动 LG 电视端</p>
+          </div>
+        </div>
+        <nav id="mainNav" class="nav">
+          <button data-focusable data-view="home" class="nav-item is-active">首页</button>
+          <button data-focusable data-view="search" class="nav-item">搜索</button>
+          <button data-focusable data-view="favorites" class="nav-item">收藏</button>
+          <button data-focusable data-view="history" class="nav-item">历史</button>
+          <button data-focusable data-view="settings" class="nav-item">设置</button>
+          <button data-focusable data-view="check" class="nav-item">自检</button>
+        </nav>
+      </header>
+
+      <main id="screen" class="screen" aria-live="polite"></main>
+    </div>
+
+    <section id="playerScreen" class="player-screen" hidden>
+      <video id="videoPlayer" class="video-player" playsinline></video>
+      <div class="player-overlay">
+        <div>
+          <p class="eyebrow" id="playerSource">DDYS</p>
+          <h2 id="playerTitle">准备播放</h2>
+          <p id="playerStatus">正在打开播放器</p>
+        </div>
+        <div class="player-actions">
+          <button data-focusable data-player-action="toggle">播放/暂停</button>
+          <button data-focusable data-player-action="seek-back">快退</button>
+          <button data-focusable data-player-action="seek-forward">快进</button>
+          <button data-focusable data-player-action="stop">返回</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="src/store.js"></script>
+    <script src="src/ddys-client.js"></script>
+    <script src="src/focus.js"></script>
+    <script src="src/player.js"></script>
+    <script src="src/app.js"></script>
+  </body>
+</html>

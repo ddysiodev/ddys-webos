@@ -1,0 +1,23 @@
+{
+  "name": "ddys-webos",
+  "version": "0.1.0",
+  "description": "LG webOS TV application for browsing and watching DDYS resources.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "check": "node tools/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-package.ps1"
+  },
+  "keywords": [
+    "ddys",
+    "webos",
+    "lg-tv",
+    "smart-tv",
+    "html5-video"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

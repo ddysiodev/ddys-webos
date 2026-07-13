@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --check src/store.js
+      - run: node --check src/ddys-client.js
+      - run: node --check src/focus.js
+      - run: node --check src/player.js
+      - run: node --check src/app.js
+      - run: node tools/check.mjs
+      - run: node --test tests/*.test.mjs
+      - run: pwsh -NoProfile -ExecutionPolicy Bypass -File tools/build-package.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ddys-webos-v0.1.0
+          path: |
+            releases/ddys-webos-v0.1.0.zip
+            releases/ddys-webos-v0.1.0.zip.sha256
+            releases/ddys-webos-v0.1.0.ipk
+            releases/ddys-webos-v0.1.0.ipk.sha256

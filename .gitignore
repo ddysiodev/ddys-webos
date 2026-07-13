@@ -1,0 +1,14 @@
+node_modules/
+coverage/
+dist/
+build/
+package/
+releases/
+*.log
+*.tmp
+*.cache
+*.zip
+*.ipk
+.env
+.env.*
+!.env.example

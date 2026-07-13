@@ -1,0 +1,16 @@
+{
+  "id": "io.ddys.webos",
+  "version": "0.1.0",
+  "vendor": "DDYS",
+  "type": "web",
+  "main": "index.html",
+  "title": "DDYS",
+  "icon": "assets/icon.png",
+  "largeIcon": "assets/icon-512.png",
+  "splashBackground": "#071315",
+  "bgColor": "#071315",
+  "resolution": "1920x1080",
+  "transparent": false,
+  "disableBackHistoryAPI": true,
+  "trustLevel": "default"
+}
